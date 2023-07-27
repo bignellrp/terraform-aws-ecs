@@ -28,3 +28,5 @@ override.tf.json
 .terraformrc
 terraform.rc
 image/tokens.json
+image/keys.json
+secrets/*

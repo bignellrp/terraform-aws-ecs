@@ -1,25 +1,25 @@
 FROM python:3.9
 
 # Set working directory
-WORKDIR /code
+WORKDIR /app
 
 # Clone the conf files into the docker container
-RUN git clone git clone https://github.com/bignellrp/footyapp.git /code/app
-
-# Change to the pre branch
-RUN git checkout pre
+RUN git clone --branch preprod --single-branch https://github.com/bignellrp/footyapp.git /app
 
 # Install the requirements
-RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
+RUN pip install --no-cache-dir --upgrade -r /app/requirements.txt
 
-# Copy the app into the docker container
-COPY ./app /code/app
+# Copy the app config into the docker container
+COPY ./config/gunicorn_conf.py /app/gunicorn_conf.py
 
+# Move these to secrets
 RUN mkdir /tokens
-COPY poststart.sh /tokens/tokens.json
+COPY tokens.json /tokens/tokens.json
+COPY keys.json /tokens/keys.json
 
+# Set environment variables
 ENV WEB_CONCURRENCY 1
 ENV PYTHONUNBUFFERED 1
 
 # Run the app
-CMD ["gunicorn", "--conf", "app/gunicorn_conf.py", "--bind", "0.0.0.0:80", "app.main:app"]
+CMD ["gunicorn", "--conf", "gunicorn_conf.py", "--bind", "0.0.0.0:80", "main:app"]
