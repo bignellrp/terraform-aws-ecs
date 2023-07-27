@@ -5,13 +5,13 @@ provider "aws" {
 data "aws_availability_zones" "available" {}
 
 locals {
-  region = "eu-west-1"
+  region = "eu-west-2"
   name   = "ex-${basename(path.cwd)}"
 
   vpc_cidr = "10.0.0.0/16"
   azs      = slice(data.aws_availability_zones.available.names, 0, 3)
 
-  container_name = "ecsdemo-frontend"
+  container_name = "ecs-frontend"
   container_port = 3000
 
   tags = {
@@ -64,14 +64,23 @@ module "ecs_service" {
   # Container definition(s)
   container_definitions = {
 
-    fluent-bit = {
+    # fluent-bit = {
+    #   cpu       = 512
+    #   memory    = 1024
+    #   essential = true
+    #   image     = nonsensitive(data.aws_ssm_parameter.fluentbit.value)
+    #   firelens_configuration = {
+    #     type = "fluentbit"
+    #   }
+    #   memory_reservation = 50
+    #   user               = "0"
+    # }
+
+    footyapp = {
       cpu       = 512
       memory    = 1024
       essential = true
       image     = nonsensitive(data.aws_ssm_parameter.fluentbit.value)
-      firelens_configuration = {
-        type = "fluentbit"
-      }
       memory_reservation = 50
       user               = "0"
     }
@@ -94,7 +103,7 @@ module "ecs_service" {
       readonly_root_filesystem = false
 
       dependencies = [{
-        containerName = "fluent-bit"
+        containerName = "footyapp"
         condition     = "START"
       }]
 
@@ -158,9 +167,9 @@ module "ecs_service" {
 # Supporting Resources
 ################################################################################
 
-data "aws_ssm_parameter" "fluentbit" {
-  name = "/aws/service/aws-for-fluent-bit/stable"
-}
+# data "aws_ssm_parameter" "fluentbit" {
+#   name = "/aws/service/aws-for-fluent-bit/stable"
+# }
 
 resource "aws_service_discovery_http_namespace" "this" {
   name        = local.name
