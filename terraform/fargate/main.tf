@@ -21,6 +21,13 @@ locals {
   }
 }
 
+
+# Create cloudwatch log group
+resource "aws_cloudwatch_log_group" "ecs_log_group" {
+  name              = "/ecs/footyapp-service"
+  retention_in_days = 7 # Set the desired retention period for log data (optional)
+}
+
 ################################################################################
 # Cluster
 ################################################################################
@@ -76,25 +83,25 @@ module "ecs_service" {
     #   user               = "0"
     # }
 
-    footyapp = {
-      cpu       = 512
-      memory    = 1024
-      essential = true
-      image     = "516399821737.dkr.ecr.eu-west-2.amazonaws.com/footyapp-repository:latest"
-      memory_reservation = 50
-      user               = "0"
-    }
+    # footyapp = {
+    #   cpu       = 512
+    #   memory    = 1024
+    #   essential = true
+    #   image     = "516399821737.dkr.ecr.eu-west-2.amazonaws.com/footyapp-repository:latest"
+    #   memory_reservation = 50
+    #   user               = "0"
+    # }
 
-    (local.container_name) = {
+    footyapp = {
       cpu       = 512
       memory    = 1024
       essential = true
       image     = "516399821737.dkr.ecr.eu-west-2.amazonaws.com/footyapp-repository:latest"
       port_mappings = [
         {
-          name          = local.container_name
-          containerPort = local.container_port
-          hostPort      = local.container_port
+          name          = "footyapp"
+          containerPort = 80
+          hostPort      = 80
           protocol      = "tcp"
         }
       ]
@@ -117,10 +124,10 @@ module "ecs_service" {
       # Example image used requires access to write to root filesystem
       #readonly_root_filesystem = false
 
-      dependencies = [{
-        containerName = "footyapp"
-        condition     = "START"
-      }]
+      # dependencies = [{
+      #   containerName = "footyapp"
+      #   condition     = "START"
+      # }]
 
       #enable_cloudwatch_logging = True
       # log_configuration = {
@@ -148,19 +155,19 @@ module "ecs_service" {
     namespace = aws_service_discovery_http_namespace.this.arn
     service = {
       client_alias = {
-        port     = local.container_port
-        dns_name = local.container_name
+        port     = 80
+        dns_name = "footyapp"
       }
-      port_name      = local.container_name
-      discovery_name = local.container_name
+      port_name      = "footyapp"
+      discovery_name = "footyapp"
     }
   }
 
   load_balancer = {
     service = {
       target_group_arn = element(module.alb.target_group_arns, 0)
-      container_name   = local.container_name
-      container_port   = local.container_port
+      container_name   = "footyapp"
+      container_port   = 80
     }
   }
 
@@ -168,8 +175,8 @@ module "ecs_service" {
   security_group_rules = {
     alb_ingress_3000 = {
       type                     = "ingress"
-      from_port                = local.container_port
-      to_port                  = local.container_port
+      from_port                = 80
+      to_port                  = 80
       protocol                 = "tcp"
       description              = "Service port"
       source_security_group_id = module.alb_sg.security_group_id
