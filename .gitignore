@@ -27,6 +27,7 @@ override.tf.json
 # Ignore CLI configuration files
 .terraformrc
 terraform.rc
-image/tokens.json
-image/keys.json
+containers/tokens.json
+containers/keys.json
+containers/docker_token.txt
 secrets/*
