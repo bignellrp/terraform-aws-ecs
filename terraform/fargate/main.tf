@@ -61,77 +61,100 @@ module "ecs_service" {
   cpu    = 1024
   memory = 4096
 
-  # Container definition(s)
-  # container_definitions = {
+  #Container definition(s)
+  container_definitions = {
 
-  #   # fluent-bit = {
-  #   #   cpu       = 512
-  #   #   memory    = 1024
-  #   #   essential = true
-  #   #   image     = nonsensitive(data.aws_ssm_parameter.fluentbit.value)
-  #   #   firelens_configuration = {
-  #   #     type = "fluentbit"
-  #   #   }
-  #   #   memory_reservation = 50
-  #   #   user               = "0"
-  #   # }
+    # fluent-bit = {
+    #   cpu       = 512
+    #   memory    = 1024
+    #   essential = true
+    #   image     = nonsensitive(data.aws_ssm_parameter.fluentbit.value)
+    #   firelens_configuration = {
+    #     type = "fluentbit"
+    #   }
+    #   memory_reservation = 50
+    #   user               = "0"
+    # }
 
-  #   footyapp = {
-  #     cpu       = 512
-  #     memory    = 1024
-  #     essential = true
-  #     image     = nonsensitive(data.aws_ssm_parameter.fluentbit.value)
-  #     memory_reservation = 50
-  #     user               = "0"
-  #   }
+    footyapp = {
+      cpu       = 512
+      memory    = 1024
+      essential = true
+      image     = "516399821737.dkr.ecr.eu-west-2.amazonaws.com/footyapp-repository:latest"
+      memory_reservation = 50
+      user               = "0"
+    }
 
-  #   (local.container_name) = {
-  #     cpu       = 512
-  #     memory    = 1024
-  #     essential = true
-  #     image     = "public.ecr.aws/aws-containers/ecsdemo-frontend:776fd50"
-  #     port_mappings = [
-  #       {
-  #         name          = local.container_name
-  #         containerPort = local.container_port
-  #         hostPort      = local.container_port
-  #         protocol      = "tcp"
-  #       }
-  #     ]
+    (local.container_name) = {
+      cpu       = 512
+      memory    = 1024
+      essential = true
+      image     = "516399821737.dkr.ecr.eu-west-2.amazonaws.com/footyapp-repository:latest"
+      port_mappings = [
+        {
+          name          = local.container_name
+          containerPort = local.container_port
+          hostPort      = local.container_port
+          protocol      = "tcp"
+        }
+      ]
+      environment = [
+        {
+          name  = "SPREADSHEET_ID"
+          value = "value1"
+        },
+        {
+          name  = "ENV_VARIABLE_NAME2"
+          value = "value2"
+        },
+        # {
+        #   name  = "DB_PASSWORD"
+        #   value_from = "/myapp/db_password" # Reference to the secret in SSM Parameter Store
+        # },
+        # Add more environment variables as needed
+      ]
 
-  #     # Example image used requires access to write to root filesystem
-  #     readonly_root_filesystem = false
+      # Example image used requires access to write to root filesystem
+      #readonly_root_filesystem = false
 
-  #     dependencies = [{
-  #       containerName = "footyapp"
-  #       condition     = "START"
-  #     }]
+      dependencies = [{
+        containerName = "footyapp"
+        condition     = "START"
+      }]
 
-  #     enable_cloudwatch_logging = false
-  #     log_configuration = {
-  #       logDriver = "awsfirelens"
-  #       options = {
-  #         Name                    = "firehose"
-  #         region                  = local.region
-  #         delivery_stream         = "my-stream"
-  #         log-driver-buffer-limit = "2097152"
-  #       }
-  #     }
-  #     memory_reservation = 100
-  #   }
-  # }
+      #enable_cloudwatch_logging = True
+      # log_configuration = {
+      #   logDriver = "awsfirelens"
+      #   options = {
+      #     Name                    = "firehose"
+      #     region                  = local.region
+      #     delivery_stream         = "my-stream"
+      #     log-driver-buffer-limit = "2097152"
+      #   }
+      # }
+      log_configuration = {
+        log_driver = "awslogs"
+        options = {
+          "awslogs-group"         = "/ecs/footyapp-service"
+          "awslogs-region"        = "eu-west-2"
+          "awslogs-stream-prefix" = "footyapp-container"
+        }
+      }
+      memory_reservation = 100
+    }
+  }
 
-  # service_connect_configuration = {
-  #   namespace = aws_service_discovery_http_namespace.this.arn
-  #   service = {
-  #     client_alias = {
-  #       port     = local.container_port
-  #       dns_name = local.container_name
-  #     }
-  #     port_name      = local.container_name
-  #     discovery_name = local.container_name
-  #   }
-  # }
+  service_connect_configuration = {
+    namespace = aws_service_discovery_http_namespace.this.arn
+    service = {
+      client_alias = {
+        port     = local.container_port
+        dns_name = local.container_name
+      }
+      port_name      = local.container_name
+      discovery_name = local.container_name
+    }
+  }
 
   load_balancer = {
     service = {
@@ -162,6 +185,92 @@ module "ecs_service" {
 
   tags = local.tags
 }
+
+################################################################################
+# # ChatGPT Example Task and Service
+# ################################################################################
+
+# module "ecs_cluster" {
+#   source = "terraform-aws-modules/ecs/aws"
+#   version = "3.0.0"
+
+#   name = "my-ecs-cluster"
+#   #subnets = module.vpc.private_subnets_cidr_blocks # Replace these with your desired subnets e.g ["subnet-12345678", "subnet-87654321"]
+# }
+
+# resource "aws_ecr_repository" "footyapp_repository" {
+#   name = "footyapp-repository"
+# }
+
+# resource "aws_ecs_task_definition" "footyapp_task" {
+#   family = "footyapp-task"
+#   container_definitions = jsonencode([
+#     {
+#       name  = "footyapp-container"
+#       image = "516399821737.dkr.ecr.eu-west-2.amazonaws.com/footyapp-repository:latest"
+#       port_mappings = {
+#         container_port = 80
+#         host_port      = 80
+#       }
+#       environment = [
+#         {
+#           name  = "SPREADSHEET_ID"
+#           value = "value1"
+#         },
+#         {
+#           name  = "ENV_VARIABLE_NAME2"
+#           value = "value2"
+#         },
+#         # {
+#         #   name  = "DB_PASSWORD"
+#         #   value_from = "/myapp/db_password" # Reference to the secret in SSM Parameter Store
+#         # },
+#         # Add more environment variables as needed
+#       ]
+#     }
+#     # Add more container definitions if needed for multiple containers in the task
+#   ])
+# }
+
+# resource "aws_ecs_service" "footyapp_service" {
+#   name            = "footyapp-service"
+#   cluster         = module.ecs_cluster.cluster_id
+#   task_definition = aws_ecs_task_definition.footyapp_task.arn
+#   desired_count   = 1
+#   iam_role        = module.ecs_cluster.ecs_task_execution_role_arn
+
+#   deployment_minimum_healthy_percent = 50
+#   deployment_maximum_percent         = 200
+
+#   load_balancer = {
+#     service = {
+#       target_group_arn = element(module.alb.target_group_arns, 0)
+#       container_name   = "footyapp-container"
+#       container_port   = 80
+#     }
+#   }
+
+#   subnet_ids = module.vpc.private_subnets
+#   security_group_rules = {
+#     alb_ingress_3000 = {
+#       type                     = "ingress"
+#       from_port                = 80
+#       to_port                  = 80
+#       protocol                 = "tcp"
+#       description              = "Service port"
+#       source_security_group_id = module.alb_sg.security_group_id
+#     }
+#     egress_all = {
+#       type        = "egress"
+#       from_port   = 0
+#       to_port     = 0
+#       protocol    = "-1"
+#       cidr_blocks = ["0.0.0.0/0"]
+#     }
+#   }
+
+#   tags = local.tags
+# }
 
 ################################################################################
 # Supporting Resources
@@ -216,9 +325,9 @@ module "alb" {
 
   target_groups = [
     {
-      name             = "${local.name}-${local.container_name}"
+      name             = "${local.name}-footyapp-container"
       backend_protocol = "HTTP"
-      backend_port     = local.container_port
+      backend_port     = 80
       target_type      = "ip"
     },
   ]
